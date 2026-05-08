@@ -9,14 +9,26 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Priorizar variáveis de ambiente para o Heroku, com fallbacks caso não definidas
-const NOTION_TOKEN = process.env.NOTION_TOKEN || "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";
-const NOTION_DATABASE_ID = process.env.NOTION_DATABASE_ID || "33ca22b7-07fd-8040-9e66-dcfa4595b537";
+// Sanitização rigorosa das credenciais (limpa espaços, quebras de linha e aspas acidentais)
+const rawToken = process.env.NOTION_TOKEN || "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";
+const rawDbId = process.env.NOTION_DATABASE_ID || "33ca22b7-07fd-8040-9e66-dcfa4595b537";
 
-console.log("--- NOTION CONFIG FIXED ---");
-console.log("Using Token Prefix:", NOTION_TOKEN.substring(0, 15) + "...");
-console.log("Using Database ID:", NOTION_DATABASE_ID);
-console.log("---------------------------");
+const NOTION_TOKEN = rawToken.replace(/[\s"']/g, '').trim();
+let NOTION_DATABASE_ID = rawDbId.replace(/[\s"']/g, '').trim();
+
+// Garantir formato com hifens para o ID do banco se for um ID de 32 caracteres sem hifens
+if (NOTION_DATABASE_ID.length === 32 && !NOTION_DATABASE_ID.includes('-')) {
+  NOTION_DATABASE_ID = NOTION_DATABASE_ID.replace(
+    /^([0-9a-f]{8})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{4})([0-9a-f]{12})$/i,
+    '$1-$2-$3-$4-$5'
+  );
+}
+
+console.log("--- ✅ NOTION CONFIG READY ---");
+console.log("Token Prefix:", NOTION_TOKEN.substring(0, 15) + "...");
+console.log("Database ID:", NOTION_DATABASE_ID);
+console.log("Token Length:", NOTION_TOKEN.length);
+console.log("------------------------------");
 const NOTION_API_URL = "https://api.notion.com/v1";
 const NOTION_VERSION = "2022-06-28";
 

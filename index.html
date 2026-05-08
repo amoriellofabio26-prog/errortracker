@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AIVA AGENT ERROR TRACKER</title>
     <!-- Favicon: MIRA/Crosshair SVG -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><line x1='22' y1='12' x2='18' y2='12'></line><line x1='6' y1='12' x2='2' y2='12'></line><line x1='12' y1='6' x2='12' y2='2'></line><line x1='12' y1='22' x2='12' y2='18'></line></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='8'></circle><line x1='12' y1='1' x2='12' y2='4'></line><line x1='12' y1='20' x2='12' y2='23'></line><line x1='1' y1='12' x2='4' y2='12'></line><line x1='20' y1='12' x2='23' y2='12'></line><circle cx='12' cy='12' r='1' fill='%232563eb'></circle></svg>">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons CDN -->
@@ -90,10 +90,13 @@
     <nav class="fixed top-0 w-full z-50 glass border-b border-slate-200">
         <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
             <div class="flex items-center gap-2">
-                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-blue-200">
                     <i data-lucide="crosshair" class="w-6 h-6"></i>
                 </div>
-                <span class="font-bold text-xl tracking-tighter uppercase">AIVA AGENT</span>
+                <div class="flex flex-col leading-tight">
+                    <span class="font-bold text-xl tracking-tighter uppercase">AIVA AGENT</span>
+                    <span class="text-[10px] font-bold text-blue-600 tracking-widest uppercase opacity-80">Error Tracker</span>
+                </div>
             </div>
             <div class="flex gap-6 text-sm font-medium">
                 <a href="#form" class="hover:text-blue-600 transition-colors">Operador</a>
@@ -426,10 +429,15 @@
 
                 const responseText = await response.text();
                 if (!response.ok) {
-                    let errorMessage = "Erro ao buscar dados do Notion";
+                    let errorMessage = "Erro na API do Notion";
                     try {
                         const errData = JSON.parse(responseText);
-                        errorMessage = `${errData.message || "Erro"} [${errData.code || "no_code"}]`;
+                        if (errData.code === "object_not_found") {
+                            errorMessage = `ERRO: Banco de dados não encontrado. Verifique o ID e se a integração "Correções" foi convidada para o banco de dados no Notion (Botão ••• > Connections).`;
+                        } else {
+                            errorMessage = `ERRO NOTION: ${errData.message || "Desconhecido"} (${errData.code || "sem_codigo"})`;
+                        }
+                        console.error("DEBUG NOTION ERROR:", errData);
                     } catch (e) {
                         errorMessage = responseText || errorMessage;
                     }
@@ -823,28 +831,28 @@
                 const schemaData = await schemaRes.json();
                 const notionProps = schemaData.properties;
                 
-                const findActualName = (target) => {
-                    return Object.keys(notionProps).find(p => p.trim().toLowerCase() === target.toLowerCase());
-                };
-
-                const erroCol = findActualName("Erro");
-                const imagemCol = findActualName("Imagem");
-                const correcaoCol = findActualName("Correção");
+                // Mapeamento dinâmico baseado no tipo e nome
+                const titleKey = Object.keys(notionProps).find(k => notionProps[k].type === 'title');
+                const erroCol = titleKey; // O Notion exige um campo de título
+                const imagemCol = Object.keys(notionProps).find(k => k.toLowerCase().includes('imagem') && notionProps[k].type === 'rich_text');
+                const correcaoCol = Object.keys(notionProps).find(k => k.toLowerCase().includes('corre') && notionProps[k].type === 'rich_text');
 
                 if (!erroCol || !imagemCol || !correcaoCol) {
                     const missing = [];
-                    if (!erroCol) missing.push("Erro");
-                    if (!imagemCol) missing.push("Imagem");
-                    if (!correcaoCol) missing.push("Correção");
-                    throw new Error(`Colunas faltando no Notion: ${missing.join(", ")}`);
+                    if (!erroCol) missing.push("Coluna de Título");
+                    if (!imagemCol) missing.push("Coluna de Texto para 'Imagem'");
+                    if (!correcaoCol) missing.push("Coluna de Texto para 'Correção'");
+                    throw new Error(`Estrutura do Notion incompatível. Certifique-se de que existem colunas com os nomes 'Erro' (Título), 'Imagem' (Texto) e 'Correção' (Texto).`);
                 }
 
                 const payload = {
-                    parent: { database_id: "DATABASE_ID_HANDLED_BY_SERVER" }, // O servidor injeta o ID correto
+                    parent: { database_id: "DATABASE_ID_HANDLED_BY_SERVER" },
                     properties: {}
                 };
 
+                // O campo de título SEMPRE usa a chave 'title' no valor
                 payload.properties[erroCol] = { title: errorChunks };
+                // Campos de texto usam 'rich_text'
                 payload.properties[imagemCol] = { rich_text: imageChunks };
                 payload.properties[correcaoCol] = { rich_text: [] };
 
