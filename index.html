@@ -321,6 +321,9 @@
         /**
          * CONFIGURAÇÕES E CONSTANTES
          */
+        if (window.location.protocol === 'file:') {
+            alert("ERRO: Este aplicativo precisa ser executado através de um servidor (como o que está rodando no Railway ou o preview do AI Studio) e não abrindo o arquivo .html diretamente.");
+        }
         const ADMIN_PASSWORD = "Fabinho123*";
         const NOTION_API_URL = "/api/notion";
 
@@ -378,12 +381,19 @@
                         body: JSON.stringify({ archived: true })
                     });
                     
+                    const responseText = await response.text();
                     if (response.ok) {
                         showToast("Registro excluído com sucesso!", "success");
                         window.fetchRecords();
                     } else {
-                        const errData = await response.json();
-                        showToast("Erro ao excluir: " + (errData.message || "Erro desconhecido"), "error");
+                        let msg = "Erro ao excluir";
+                        try {
+                            const errData = JSON.parse(responseText);
+                            msg = errData.message || msg;
+                        } catch(e) {
+                            msg = responseText || msg;
+                        }
+                        showToast(msg, "error");
                     }
                 } catch (e) {
                     showToast("Erro de conexão: " + e.message, "error");
@@ -826,9 +836,30 @@
 
                 // Busca o esquema real do banco para mapear os nomes automaticamente
                 const schemaRes = await fetch(`${NOTION_API_URL}/database`);
-                if (!schemaRes.ok) throw new Error("Não foi possível validar as colunas do Notion.");
+                const contentType = schemaRes.headers.get("content-type");
+                const schemaText = await schemaRes.text();
                 
-                const schemaData = await schemaRes.json();
+                if (contentType && contentType.includes("text/html")) {
+                    console.error("HTML RECEIVED:", schemaText);
+                    throw new Error("O servidor retornou uma página HTML em vez de dados (possível 404 ou erro de proxy). Certifique-se de que está acessando a URL correta do servidor.");
+                }
+                
+                if (!schemaRes.ok) {
+                    let logMsg = schemaText;
+                    try {
+                        const err = JSON.parse(schemaText);
+                        logMsg = err.message || schemaText;
+                    } catch(e) {}
+                    throw new Error(`Erro ao validar colunas: ${logMsg}`);
+                }
+                
+                let schemaData;
+                try {
+                    schemaData = JSON.parse(schemaText);
+                } catch(e) {
+                    console.error("FORMAT ERROR:", schemaText);
+                    throw new Error("Resposta do servidor não é um JSON válido. Verifique se as rotas da API estão funcionando.");
+                }
                 const notionProps = schemaData.properties;
                 
                 // Mapeamento dinâmico baseado no tipo e nome
@@ -862,22 +893,22 @@
                     body: JSON.stringify(payload)
                 });
 
-                if (response.ok) {
-                    showFeedback("Erro enviado com sucesso ao Notion!", "success");
-                    $('errorForm').reset();
-                    $('previewContainer').classList.add('hidden');
-                    currentBase64Image = "";
-                } else {
-                    const responseText = await response.text();
+                const responseText2 = await response.text();
+                if (!response.ok) {
                     let errorMessage = "Erro ao enviar para o Notion";
                     try {
-                        const errData = JSON.parse(responseText);
+                        const errData = JSON.parse(responseText2);
                         errorMessage = errData.message || errorMessage;
                     } catch (e) {
-                        errorMessage = responseText || errorMessage;
+                        errorMessage = responseText2 || errorMessage;
                     }
                     throw new Error(errorMessage);
                 }
+
+                showFeedback("Erro enviado com sucesso ao Notion!", "success");
+                $('errorForm').reset();
+                $('previewContainer').classList.add('hidden');
+                currentBase64Image = "";
             } catch (error) {
                 console.error(error);
                 showFeedback(`Erro: ${error.message}`, "error");

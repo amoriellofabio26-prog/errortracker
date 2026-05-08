@@ -38,6 +38,13 @@ async function startServer() {
 
   app.use(express.json({ limit: '10mb' }));
 
+  // Logging middleware
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      console.log(`[API] ${req.method} ${req.path}`);
+    }
+    next();
+  });
   // Middleware para injetar o Token do Notion em todas as chamadas
   const notionHeaders = {
     'Authorization': `Bearer ${NOTION_TOKEN}`,
@@ -123,16 +130,24 @@ async function startServer() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  const isProd = process.env.NODE_ENV === "production" || process.env.RAILWAY_ENVIRONMENT;
+  
+  if (!isProd) {
+    console.log("Starting in DEVELOPMENT mode (Vite)");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    console.log("Starting in PRODUCTION mode (Static)");
+    const distPath = path.resolve(__dirname, 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
+      // Se não for uma rota de API, serve o index.html
+      if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ message: "API route not found" });
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
