@@ -14,7 +14,21 @@ const rawToken = process.env.NOTION_TOKEN || "ntn_435320934375HIauAbYC9LQZuAJcyC
 const rawDbId = process.env.NOTION_DATABASE_ID || "33ca22b7-07fd-8040-9e66-dcfa4595b537";
 
 const NOTION_TOKEN = rawToken.replace(/[\s"']/g, '').trim();
-let NOTION_DATABASE_ID = rawDbId.replace(/[\s"']/g, '').trim();
+let NOTION_DATABASE_ID = rawDbId.trim();
+
+// Se for uma URL completa do Notion, extrair apenas o ID (os últimos 32 caracteres hexadecimais antes dos parâmetros)
+if (NOTION_DATABASE_ID.includes("notion.so/")) {
+  const parts = NOTION_DATABASE_ID.split('/');
+  const lastPart = parts[parts.length - 1].split('?')[0];
+  if (lastPart.length >= 32) {
+    NOTION_DATABASE_ID = lastPart.slice(-32);
+  }
+}
+
+// Limpar caracteres não-hexadecimais residuais se não for formato com hifens
+if (!NOTION_DATABASE_ID.includes('-')) {
+    NOTION_DATABASE_ID = NOTION_DATABASE_ID.replace(/[^a-fA-F0-9]/g, '');
+}
 
 // Garantir formato com hifens para o ID do banco se for um ID de 32 caracteres sem hifens
 if (NOTION_DATABASE_ID.length === 32 && !NOTION_DATABASE_ID.includes('-')) {
@@ -27,7 +41,7 @@ if (NOTION_DATABASE_ID.length === 32 && !NOTION_DATABASE_ID.includes('-')) {
 console.log("--- ✅ NOTION CONFIG READY ---");
 console.log("Token Prefix:", NOTION_TOKEN.substring(0, 15) + "...");
 console.log("Database ID:", NOTION_DATABASE_ID);
-console.log("Token Length:", NOTION_TOKEN.length);
+console.log("Env:", process.env.RAILWAY_ENVIRONMENT || "local");
 console.log("------------------------------");
 const NOTION_API_URL = "https://api.notion.com/v1";
 const NOTION_VERSION = "2022-06-28";
