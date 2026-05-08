@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIVA AGENT ERROR TRACKER</title>
+    <!-- Favicon: MIRA/Crosshair SVG -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><line x1='22' y1='12' x2='18' y2='12'></line><line x1='6' y1='12' x2='2' y2='12'></line><line x1='12' y1='6' x2='12' y2='2'></line><line x1='12' y1='22' x2='12' y2='18'></line></svg>">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            scroll-behavior: smooth;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .loader {
+            border-top-color: #3b82f6;
+            animation: spinner 0.6s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden { display: none; }
+        #imageModal {
+            transition: opacity 0.3s ease;
+        }
+        #imageModal.hidden {
+            display: none;
+            opacity: 0;
+        }
+        #imageModal:not(.hidden) {
+            display: flex;
+            opacity: 1;
+        }
+        .legibility-mode {
+            filter: contrast(1.8) brightness(1.2) saturate(1.3) grayscale(0.2);
+            image-rendering: crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: pixelated;
+        }
+        .modal-zoom {
+            cursor: zoom-out;
+            max-width: none !important;
+            max-height: none !important;
+        }
+        .modal-fit {
+            cursor: zoom-in;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .card-minimized .card-expandable {
+            display: none;
+        }
+        .card-expanded .card-expandable {
+            display: block;
+        }
+        .card-expanded .card-body {
+            flex-direction: column;
+        }
+        .card-expanded .card-thumbnail {
+            width: 100%;
+            height: 200px;
+            border-left: none;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .card-minimized .card-body {
+            flex-direction: row-reverse;
+        }
+        .card-minimized .card-thumbnail {
+            width: 80px;
+            height: 80px;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Navegação -->
+    <nav class="fixed top-0 w-full z-50 glass border-b border-slate-200">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white">
+                    <i data-lucide="crosshair" class="w-6 h-6"></i>
+                </div>
+                <span class="font-bold text-xl tracking-tighter uppercase">AIVA AGENT</span>
+            </div>
+            <div class="flex gap-6 text-sm font-medium">
+                <a href="#form" class="hover:text-blue-600 transition-colors">Operador</a>
+                <a href="#admin" class="hover:text-blue-600 transition-colors">Admin</a>
+                <a href="#historico" class="hover:text-blue-600 transition-colors">Histórico</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Conteúdo Principal -->
+    <main class="pt-24 pb-12 px-4 max-w-5xl mx-auto">
+        
+        <!-- PÁGINA 1: FORMULÁRIO DO OPERADOR -->
+        <section id="form-section" class="space-y-8">
+            <div class="text-center space-y-2">
+                <h1 class="text-3xl font-extrabold text-slate-900">Relatar Novo Erro</h1>
+                <p class="text-slate-500">Preencha os detalhes abaixo para enviar o erro ao banco de dados.</p>
+            </div>
+
+            <div class="max-w-xl mx-auto bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-8 border border-slate-100">
+                <form id="errorForm" class="space-y-6">
+                    <!-- Upload de Imagem -->
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-slate-700">Print do Erro</label>
+                        <div id="dropzone" class="relative border-2 border-dashed border-slate-300 rounded-xl p-8 transition-all hover:border-blue-400 hover:bg-blue-50/50 flex flex-col items-center justify-center gap-3 cursor-pointer">
+                            <input type="file" id="imageInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            <p class="text-sm text-slate-500 text-center">Clique ou arraste a imagem aqui</p>
+                        </div>
+                        <!-- Pré-visualização -->
+                        <div id="previewContainer" class="hidden mt-4">
+                            <p class="text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">Pré-visualização:</p>
+                            <img id="imagePreview" src="#" alt="Preview" class="w-full rounded-lg border border-slate-200 shadow-sm">
+                        </div>
+                    </div>
+
+                    <!-- Descrição -->
+                    <div class="space-y-2">
+                        <label for="errorDescription" class="block text-sm font-semibold text-slate-700">Descrição do Erro</label>
+                        <textarea id="errorDescription" rows="4" required class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none" placeholder="Descreva o que aconteceu..."></textarea>
+                    </div>
+
+                    <!-- Botão Enviar -->
+                    <button type="submit" id="submitBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2">
+                        <span>Enviar Erro</span>
+                        <div id="submitLoader" class="loader hidden w-5 h-5 border-2 border-white rounded-full"></div>
+                    </button>
+                </form>
+                
+                <!-- Mensagens de Feedback -->
+                <div id="feedbackMsg" class="hidden mt-6 p-4 rounded-xl text-center font-medium"></div>
+            </div>
+
+            <!-- Histórico do Operador (Minimizado) -->
+            <div class="max-w-xl mx-auto mt-12 space-y-4">
+                <button id="toggleHistory" class="w-full flex items-center justify-between p-4 bg-slate-100 rounded-xl hover:bg-slate-200 transition-all">
+                    <span class="font-bold text-slate-700">Meus Envios Recentes</span>
+                    <svg id="historyIcon" xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="operatorHistory" class="hidden space-y-4">
+                    <!-- Histórico será carregado aqui -->
+                </div>
+            </div>
+        </section>
+
+        <!-- PÁGINA 2: PAINEL DO ADMIN -->
+        <section id="admin-section" class="hidden space-y-8">
+            <!-- Login Admin -->
+            <div id="adminLogin" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 border border-slate-100 text-center space-y-6">
+                <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <div class="space-y-2">
+                    <h2 class="text-2xl font-bold text-slate-900">Acesso Restrito</h2>
+                    <p class="text-slate-500 text-sm">Digite a senha para acessar o painel administrativo.</p>
+                </div>
+                <div class="space-y-4">
+                    <input type="password" id="adminPassword" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest" placeholder="••••••••">
+                    <button id="loginBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl transition-all">Entrar no Painel</button>
+                </div>
+            </div>
+
+            <!-- Painel de Registros -->
+            <div id="adminPanel" class="hidden space-y-8">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 class="text-3xl font-extrabold text-slate-900">Painel Administrativo</h1>
+                        <p class="text-slate-500">Gerencie e corrija os erros relatados pelos operadores.</p>
+                    </div>
+                    <button id="refreshBtn" class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-all">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Atualizar Dados
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Coluna Pendentes -->
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-3 pb-2 border-b-2 border-amber-200">
+                            <div class="w-3 h-3 bg-amber-500 rounded-full animate-pulse"></div>
+                            <h2 class="text-xl font-bold text-slate-800">Pendentes</h2>
+                            <span id="pendingCount" class="ml-auto bg-amber-100 text-amber-700 text-xs font-bold px-2 py-1 rounded-full">0</span>
+                        </div>
+                        <div id="pendingContainer" class="space-y-6">
+                            <!-- Cards pendentes -->
+                        </div>
+                    </div>
+
+                    <!-- Coluna Concluídos -->
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-3 pb-2 border-b-2 border-green-200">
+                            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <h2 class="text-xl font-bold text-slate-800">Concluídos</h2>
+                            <span id="completedCount" class="ml-auto bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full">0</span>
+                        </div>
+                        <div id="completedContainer" class="space-y-6">
+                            <!-- Cards concluídos -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loader de Carregamento -->
+                <div id="panelLoader" class="hidden flex flex-col items-center justify-center py-20 gap-4">
+                    <div class="loader w-12 h-12 border-4 border-slate-200 rounded-full"></div>
+                    <p class="text-slate-500 font-medium">Buscando registros no Notion...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- PÁGINA 3: HISTÓRICO DE CORREÇÕES DIÁRIAS -->
+        <section id="history-section" class="hidden space-y-8">
+            <div class="text-center space-y-2">
+                <h1 class="text-3xl font-extrabold text-slate-900">Histórico de Correções</h1>
+                <p class="text-slate-500">Visualize e copie as correções agrupadas por dia.</p>
+            </div>
+
+            <!-- Login Histórico (Compartilhado com Admin) -->
+            <div id="historyLogin" class="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 border border-slate-100 text-center space-y-6">
+                <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <div class="space-y-2">
+                    <h2 class="text-2xl font-bold text-slate-900">Acesso Restrito</h2>
+                    <p class="text-slate-500 text-sm">Digite a senha para acessar o histórico de correções.</p>
+                </div>
+                <div class="space-y-4">
+                    <input type="password" id="historyPassword" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-center tracking-widest" placeholder="••••••••">
+                    <button id="historyLoginBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl transition-all">Ver Histórico</button>
+                </div>
+            </div>
+
+            <!-- Lista de Histórico Agrupado -->
+            <div id="historyContent" class="hidden space-y-10">
+                <div id="dailyHistoryContainer" class="space-y-10">
+                    <!-- Conteúdo agrupado será inserido aqui -->
+                </div>
+
+                <!-- Loader de Carregamento -->
+                <div id="historyLoader" class="hidden flex flex-col items-center justify-center py-20 gap-4">
+                    <div class="loader w-12 h-12 border-4 border-slate-200 rounded-full"></div>
+                    <p class="text-slate-500 font-medium">Buscando histórico no Notion...</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal de Visualização de Imagem -->
+    <div id="imageModal" class="hidden fixed inset-0 z-[100] bg-black/95 flex flex-col items-center justify-center p-4 md:p-10">
+        <div class="absolute top-6 right-6 flex gap-4">
+            <button id="toggleLegibility" class="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-all flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Modo Legibilidade
+            </button>
+            <button id="closeModal" class="text-white hover:text-slate-300 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="w-full h-full flex items-center justify-center overflow-auto p-4" id="modalViewport">
+            <img id="modalImage" src="" alt="Erro em alta resolução" class="modal-fit rounded-lg shadow-2xl transition-all duration-300">
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação Customizado -->
+    <div id="confirmModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div class="p-6 text-center">
+                <div class="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-slate-900 mb-2">Excluir Registro?</h3>
+                <p class="text-slate-500 text-sm mb-6">Esta ação não pode ser desfeita no Notion.</p>
+                <div class="flex gap-3">
+                    <button id="confirmCancel" class="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">Cancelar</button>
+                    <button id="confirmOk" class="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-200">Excluir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast de Notificação -->
+    <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] pointer-events-none flex flex-col gap-2"></div>
+
+    <script>
+        /**
+         * CONFIGURAÇÕES E CONSTANTES
+         */
+        const ADMIN_PASSWORD = "Fabinho123*";
+        const NOTION_API_URL = "/api/notion";
+
+        // Estado Global
+        let currentBase64Image = "";
+        let isAdminAuthenticated = false;
+
+        /**
+         * UTILITÁRIOS
+         */
+        const $ = (id) => document.getElementById(id);
+
+        /**
+         * UTILITÁRIOS DE UI (Substitutos para alert/confirm)
+         */
+        const showToast = (msg, type = 'info') => {
+            const toast = document.createElement('div');
+            const bg = type === 'error' ? 'bg-red-600' : (type === 'success' ? 'bg-green-600' : 'bg-slate-800');
+            toast.className = `${bg} text-white px-6 py-3 rounded-xl shadow-xl text-sm font-bold animate-in slide-in-from-bottom-4 duration-300 pointer-events-auto`;
+            toast.textContent = msg;
+            $('toastContainer').appendChild(toast);
+            setTimeout(() => {
+                toast.classList.add('animate-out', 'fade-out', 'slide-out-to-bottom-4');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
+        const customConfirm = (callback) => {
+            const modal = $('confirmModal');
+            const okBtn = $('confirmOk');
+            const cancelBtn = $('confirmCancel');
+
+            modal.classList.remove('hidden');
+            
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+            };
+
+            okBtn.onclick = () => {
+                cleanup();
+                callback();
+            };
+            cancelBtn.onclick = cleanup;
+        };
+
+        // Funções Globais (Definidas no topo para garantir disponibilidade)
+        window.archivePage = async (pageId) => {
+            customConfirm(async () => {
+                try {
+                    const response = await fetch(`${NOTION_API_URL}/pages/${pageId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ archived: true })
+                    });
+                    
+                    if (response.ok) {
+                        showToast("Registro excluído com sucesso!", "success");
+                        window.fetchRecords();
+                    } else {
+                        const errData = await response.json();
+                        showToast("Erro ao excluir: " + (errData.message || "Erro desconhecido"), "error");
+                    }
+                } catch (e) {
+                    showToast("Erro de conexão: " + e.message, "error");
+                }
+            });
+        };
+
+        window.toggleCard = (id) => {
+            const card = $(`card-${id}`);
+            if (!card) return;
+            const isMinimized = card.classList.toggle('card-minimized');
+            card.classList.toggle('card-expanded', !isMinimized);
+            
+            const arrow = card.querySelector('.arrow-icon');
+            if (arrow) arrow.style.transform = isMinimized ? 'rotate(0deg)' : 'rotate(180deg)';
+            
+            const desc = card.querySelector('.card-desc');
+            if (desc) {
+                if (isMinimized) desc.classList.add('truncate');
+                else desc.classList.remove('truncate');
+            }
+        };
+
+        /**
+         * PÁGINA 3: LÓGICA DO HISTÓRICO DIÁRIO
+         */
+
+        async function fetchDailyHistory() {
+            const container = $('dailyHistoryContainer');
+            const loader = $('historyLoader');
+            
+            container.innerHTML = "";
+            loader.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${NOTION_API_URL}/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sorts: [{ timestamp: "created_time", direction: "descending" }]
+                    })
+                });
+
+                const responseText = await response.text();
+                if (!response.ok) {
+                    let errorMessage = "Erro ao buscar dados do Notion";
+                    try {
+                        const errData = JSON.parse(responseText);
+                        errorMessage = `${errData.message || "Erro"} [${errData.code || "no_code"}]`;
+                    } catch (e) {
+                        errorMessage = responseText || errorMessage;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const data = JSON.parse(responseText);
+                renderDailyHistory(data.results);
+            } catch (error) {
+                showToast("Erro ao carregar histórico: " + error.message, "error");
+            } finally {
+                loader.classList.add('hidden');
+            }
+        }
+
+        function renderDailyHistory(results) {
+            const container = $('dailyHistoryContainer');
+            container.innerHTML = "";
+
+            const getVal = (props, name, type = 'rich_text') => {
+                const key = Object.keys(props).find(k => k.trim().toLowerCase() === name.toLowerCase());
+                if (!key) return "";
+                return props[key][type]?.map(t => t.plain_text).join("") || "";
+            };
+
+            // Filtra apenas registros que possuem correção
+            const correctedRecords = results.filter(page => {
+                const corr = getVal(page.properties, "Correção", "rich_text");
+                return corr.trim() !== "";
+            });
+
+            if (correctedRecords.length === 0) {
+                container.innerHTML = `<div class="text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                    <p class="text-slate-400 italic">Nenhuma correção registrada ainda.</p>
+                </div>`;
+                return;
+            }
+
+            // Agrupa por dia
+            const groups = {};
+            correctedRecords.forEach(page => {
+                const date = new Date(page.created_time);
+                const dateKey = date.toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: '2-digit' });
+                if (!groups[dateKey]) groups[dateKey] = [];
+                groups[dateKey].push(getVal(page.properties, "Correção", "rich_text"));
+            });
+
+            // Renderiza cada grupo
+            Object.keys(groups).forEach(dateKey => {
+                const corrections = groups[dateKey];
+                const dayId = dateKey.replace(/\s+/g, '-');
+                
+                const groupEl = document.createElement('div');
+                groupEl.className = "bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500";
+                
+                // Formata o texto das correções
+                const formattedText = corrections.map((c, i) => `Correção ${i + 1}: ${c}`).join('\n');
+
+                groupEl.innerHTML = `
+                    <div class="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">📅</span>
+                            <h3 class="font-bold text-slate-800">${dateKey} — <span class="text-blue-600">${corrections.length} correções</span></h3>
+                        </div>
+                        <button onclick="window.copyToClipboard('${dayId}', this)" class="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition-all flex items-center gap-2 shadow-sm">
+                            <span>📋 Copiar Tudo</span>
+                        </button>
+                    </div>
+                    <div class="p-4">
+                        <textarea id="text-${dayId}" readonly class="w-full p-4 bg-slate-50 rounded-xl border border-slate-100 text-xs font-mono text-slate-600 leading-relaxed outline-none resize-none" rows="${Math.min(corrections.length * 2, 15)}">${formattedText}</textarea>
+                    </div>
+                `;
+                container.appendChild(groupEl);
+            });
+        }
+
+        window.copyToClipboard = (id, btn) => {
+            const textarea = $(`text-${id}`);
+            textarea.select();
+            document.execCommand('copy');
+            
+            const originalText = btn.innerHTML;
+            btn.innerHTML = "<span>✅ Copiado!</span>";
+            btn.classList.replace('text-slate-600', 'text-green-600');
+            btn.classList.add('bg-green-50', 'border-green-200');
+            
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.replace('text-green-600', 'text-slate-600');
+                btn.classList.remove('bg-green-50', 'border-green-200');
+            }, 2000);
+        };
+
+        window.saveCorrection = async (pageId) => {
+            const correctionText = $(`corr-${pageId}`).value;
+            if (!correctionText.trim()) {
+                showToast("Por favor, digite uma correção.", "error");
+                return;
+            }
+
+            const card = $(`card-${pageId}`);
+            const btn = card.querySelector('.btn-save') || card.querySelector('button[onclick*="saveCorrection"]');
+            const originalText = btn ? btn.textContent : "Salvar";
+
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = "Salvando...";
+            }
+
+            try {
+                const correctionChunks = chunkString(correctionText);
+                const properties = {};
+                
+                const schemaRes = await fetch(`${NOTION_API_URL}/database`);
+                const schemaData = await schemaRes.json();
+                const actualCorrName = Object.keys(schemaData.properties).find(k => k.trim().toLowerCase() === "correção");
+
+                if (!actualCorrName) throw new Error("Coluna 'Correção' não encontrada no Notion.");
+
+                properties[actualCorrName] = { rich_text: correctionChunks };
+
+                const actualDoneName = Object.keys(schemaData.properties).find(k => k.trim().toLowerCase() === "concluído em");
+                if (actualDoneName) {
+                    properties[actualDoneName] = { rich_text: [{ text: { content: new Date().toLocaleString() } }] };
+                }
+
+                const response = await fetch(`${NOTION_API_URL}/pages/${pageId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ properties })
+                });
+
+                if (response.ok) {
+                    if (btn) {
+                        btn.classList.replace('bg-blue-600', 'bg-green-600');
+                        btn.textContent = "Salvo!";
+                    }
+                    showToast("Correção salva com sucesso!", "success");
+                    setTimeout(window.fetchRecords, 1000);
+                } else {
+                    const responseText = await response.text();
+                    let errorMessage = "Erro ao salvar";
+                    try {
+                        const errData = JSON.parse(responseText);
+                        errorMessage = (errData.message || errorMessage) + (errData.code ? ` (${errData.code})` : "");
+                    } catch (e) {
+                        errorMessage = responseText || errorMessage;
+                    }
+                    throw new Error(errorMessage);
+                }
+            } catch (error) {
+                showToast("Erro ao salvar correção: " + error.message, "error");
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            }
+        };
+
+        window.openModal = (src) => {
+            $('modalImage').src = src;
+            $('imageModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            $('modalImage').classList.remove('legibility-mode');
+            $('modalImage').classList.replace('modal-zoom', 'modal-fit');
+            $('modalViewport').scrollTo(0, 0);
+        };
+
+        window.closeModal = () => {
+            $('imageModal').classList.add('hidden');
+            setTimeout(() => { $('modalImage').src = ""; }, 300);
+            document.body.style.overflow = '';
+        };
+
+        // Função para dividir strings longas em pedaços de 2000 caracteres (limite do Notion)
+        const chunkString = (str, size = 2000) => {
+            if (!str) return [];
+            const numChunks = Math.ceil(str.length / size);
+            const chunks = new Array(numChunks);
+            for (let i = 0, o = 0; i < numChunks; ++i, o += size) {
+                chunks[i] = { text: { content: str.substr(o, size) } };
+            }
+            return chunks;
+        };
+
+        // Navegação por âncora
+        function handleNavigation() {
+            const hash = window.location.hash || '#form';
+            
+            // Esconde todas as seções
+            $('form-section').classList.add('hidden');
+            $('admin-section').classList.add('hidden');
+            $('history-section').classList.add('hidden');
+
+            if (hash === '#form') {
+                $('form-section').classList.remove('hidden');
+                fetchOperatorHistory();
+            } else if (hash === '#admin') {
+                $('admin-section').classList.remove('hidden');
+                if (isAdminAuthenticated) {
+                    $('adminLogin').classList.add('hidden');
+                    $('adminPanel').classList.remove('hidden');
+                    fetchRecords();
+                } else {
+                    $('adminLogin').classList.remove('hidden');
+                    $('adminPanel').classList.add('hidden');
+                }
+            } else if (hash === '#historico') {
+                $('history-section').classList.remove('hidden');
+                if (isAdminAuthenticated) {
+                    $('historyLogin').classList.add('hidden');
+                    $('historyContent').classList.remove('hidden');
+                    fetchDailyHistory();
+                } else {
+                    $('historyLogin').classList.remove('hidden');
+                    $('historyContent').classList.add('hidden');
+                }
+            }
+        }
+
+        window.addEventListener('hashchange', handleNavigation);
+        window.addEventListener('load', handleNavigation);
+
+        $('toggleHistory').addEventListener('click', () => {
+            const history = $('operatorHistory');
+            const icon = $('historyIcon');
+            const isHidden = history.classList.toggle('hidden');
+            icon.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(180deg)';
+            if (!isHidden) fetchOperatorHistory();
+        });
+
+        async function fetchOperatorHistory() {
+            const container = $('operatorHistory');
+            container.innerHTML = '<div class="text-center py-4"><div class="loader w-6 h-6 border-2 border-slate-300 rounded-full mx-auto"></div></div>';
+            
+            try {
+                const response = await fetch(`${NOTION_API_URL}/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        page_size: 5,
+                        sorts: [{ timestamp: "created_time", direction: "descending" }]
+                    })
+                });
+
+                const responseText = await response.text();
+                if (!response.ok) {
+                    let errorMessage = "Erro ao carregar histórico";
+                    try {
+                        const errData = JSON.parse(responseText);
+                        errorMessage = errData.message || errorMessage;
+                    } catch (e) {
+                        errorMessage = responseText || errorMessage;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const data = JSON.parse(responseText);
+                renderOperatorHistory(data.results);
+            } catch (e) {
+                container.innerHTML = `<p class="text-xs text-red-500 text-center">Erro: ${e.message}</p>`;
+            }
+        }
+
+        function renderOperatorHistory(results) {
+            const container = $('operatorHistory');
+            container.innerHTML = "";
+            if (!results || results.length === 0) {
+                container.innerHTML = '<p class="text-xs text-slate-400 text-center">Nenhum envio recente.</p>';
+                return;
+            }
+
+            results.forEach(page => {
+                const props = page.properties;
+                const getVal = (p, name, type = 'rich_text') => {
+                    const key = Object.keys(p).find(k => k.trim().toLowerCase() === name.toLowerCase());
+                    if (!key) return "";
+                    return p[key][type]?.map(t => t.plain_text).join("") || "";
+                };
+                const desc = getVal(props, "Erro", "title") || "Sem descrição";
+                const corr = getVal(props, "Correção", "rich_text");
+                const isDone = corr.trim() !== "";
+
+                const item = document.createElement('div');
+                item.className = "p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-4";
+                item.innerHTML = `
+                    <div class="flex-grow min-w-0">
+                        <p class="text-sm font-medium text-slate-700 truncate">${desc}</p>
+                        <p class="text-[10px] text-slate-400">${new Date(page.created_time).toLocaleString()}</p>
+                    </div>
+                    <div class="flex-shrink-0">
+                        <span class="px-2 py-1 rounded-full text-[9px] font-bold ${isDone ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
+                            ${isDone ? 'CONCLUÍDO' : 'PENDENTE'}
+                        </span>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        $('toggleLegibility').addEventListener('click', (e) => {
+            e.stopPropagation();
+            $('modalImage').classList.toggle('legibility-mode');
+        });
+
+        $('modalImage').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if ($('modalImage').classList.contains('modal-fit')) {
+                $('modalImage').classList.replace('modal-fit', 'modal-zoom');
+            } else {
+                $('modalImage').classList.replace('modal-zoom', 'modal-fit');
+            }
+        });
+
+        $('imageModal').addEventListener('click', window.closeModal);
+        $('closeModal').addEventListener('click', window.closeModal);
+
+        /**
+         * PÁGINA 1: LÓGICA DO OPERADOR
+         */
+        
+        // Função para comprimir imagem de forma mais agressiva para caber no Notion
+        const compressImage = (base64, maxWidth = 1280, quality = 0.6) => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.src = base64;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = Math.round((height * maxWidth) / width);
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    // Fundo branco para JPEGs (evita transparência preta)
+                    ctx.fillStyle = "#FFFFFF";
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Retorna como JPEG para compressão real
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+            });
+        };
+
+        // Preview de Imagem
+        $('imageInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = async function(event) {
+                    const originalBase64 = event.target.result;
+                    // Comprimir a imagem antes de salvar no estado
+                    currentBase64Image = await compressImage(originalBase64);
+                    $('imagePreview').src = currentBase64Image;
+                    $('previewContainer').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Envio do Formulário
+        $('errorForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const description = $('errorDescription').value;
+            if (!currentBase64Image) {
+                showFeedback("Por favor, faça o upload de uma imagem.", "error");
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                const imageChunks = chunkString(currentBase64Image);
+                if (imageChunks.length > 100) {
+                    throw new Error("A imagem ainda é muito grande para o Notion. Tente um print menor ou com menos detalhes.");
+                }
+
+                const errorChunks = chunkString(description);
+
+                // Busca o esquema real do banco para mapear os nomes automaticamente
+                const schemaRes = await fetch(`${NOTION_API_URL}/database`);
+                if (!schemaRes.ok) throw new Error("Não foi possível validar as colunas do Notion.");
+                
+                const schemaData = await schemaRes.json();
+                const notionProps = schemaData.properties;
+                
+                const findActualName = (target) => {
+                    return Object.keys(notionProps).find(p => p.trim().toLowerCase() === target.toLowerCase());
+                };
+
+                const erroCol = findActualName("Erro");
+                const imagemCol = findActualName("Imagem");
+                const correcaoCol = findActualName("Correção");
+
+                if (!erroCol || !imagemCol || !correcaoCol) {
+                    const missing = [];
+                    if (!erroCol) missing.push("Erro");
+                    if (!imagemCol) missing.push("Imagem");
+                    if (!correcaoCol) missing.push("Correção");
+                    throw new Error(`Colunas faltando no Notion: ${missing.join(", ")}`);
+                }
+
+                const payload = {
+                    parent: { database_id: "DATABASE_ID_HANDLED_BY_SERVER" }, // O servidor injeta o ID correto
+                    properties: {}
+                };
+
+                payload.properties[erroCol] = { title: errorChunks };
+                payload.properties[imagemCol] = { rich_text: imageChunks };
+                payload.properties[correcaoCol] = { rich_text: [] };
+
+                const response = await fetch(`${NOTION_API_URL}/pages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    showFeedback("Erro enviado com sucesso ao Notion!", "success");
+                    $('errorForm').reset();
+                    $('previewContainer').classList.add('hidden');
+                    currentBase64Image = "";
+                } else {
+                    const responseText = await response.text();
+                    let errorMessage = "Erro ao enviar para o Notion";
+                    try {
+                        const errData = JSON.parse(responseText);
+                        errorMessage = errData.message || errorMessage;
+                    } catch (e) {
+                        errorMessage = responseText || errorMessage;
+                    }
+                    throw new Error(errorMessage);
+                }
+            } catch (error) {
+                console.error(error);
+                showFeedback(`Erro: ${error.message}`, "error");
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        function setLoading(isLoading) {
+            $('submitBtn').disabled = isLoading;
+            if (isLoading) {
+                $('submitLoader').classList.remove('hidden');
+                $('submitBtn').classList.add('opacity-80');
+            } else {
+                $('submitLoader').classList.add('hidden');
+                $('submitBtn').classList.remove('opacity-80');
+            }
+        }
+
+        function showFeedback(msg, type, showProxyBtn = false) {
+            const el = $('feedbackMsg');
+            el.innerHTML = `<div>${msg}</div>`;
+            el.classList.remove('hidden', 'bg-green-100', 'text-green-700', 'bg-red-100', 'text-red-700');
+            
+            if (type === "success") {
+                el.classList.add('bg-green-100', 'text-green-700');
+            } else {
+                el.classList.add('bg-red-100', 'text-red-700');
+                if (showProxyBtn) {
+                    const btn = document.createElement('a');
+                    btn.href = "https://cors-anywhere.herokuapp.com/corsdemo";
+                    btn.target = "_blank";
+                    btn.className = "inline-block mt-3 px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-all";
+                    btn.textContent = "Ativar Proxy Temporário";
+                    el.appendChild(btn);
+                }
+            }
+
+            if (!showProxyBtn) {
+                setTimeout(() => el.classList.add('hidden'), 5000);
+            }
+        }
+
+        /**
+         * PÁGINA 2: LÓGICA DO ADMIN
+         */
+
+        const performLogin = (password) => {
+            if (password === ADMIN_PASSWORD) {
+                isAdminAuthenticated = true;
+                handleNavigation(); // Atualiza a visualização baseada no hash atual
+                return true;
+            }
+            showToast("Senha incorreta!", "error");
+            return false;
+        };
+
+        $('loginBtn').addEventListener('click', () => {
+            performLogin($('adminPassword').value);
+        });
+
+        $('historyLoginBtn').addEventListener('click', () => {
+            performLogin($('historyPassword').value);
+        });
+
+        $('refreshBtn').addEventListener('click', () => window.fetchRecords());
+
+        window.fetchRecords = async () => {
+            const pendingContainer = $('pendingContainer');
+            const loader = $('panelLoader');
+            
+            pendingContainer.innerHTML = "";
+            loader.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${NOTION_API_URL}/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sorts: [{ timestamp: "created_time", direction: "descending" }]
+                    })
+                });
+
+                const responseText = await response.text();
+                if (!response.ok) {
+                    let errorMessage = "Falha ao buscar registros";
+                    try {
+                        const errData = JSON.parse(responseText);
+                        errorMessage = (errData.message || errorMessage) + (errData.code ? ` (${errData.code})` : "");
+                    } catch (e) {
+                        errorMessage = responseText || errorMessage;
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const data = JSON.parse(responseText);
+                renderCards(data.results);
+            } catch (error) {
+                console.error(error);
+                showToast("Erro ao carregar dados: " + error.message, "error");
+            } finally {
+                loader.classList.add('hidden');
+            }
+        };
+
+        function renderCards(results) {
+            const pendingContainer = $('pendingContainer');
+            const completedContainer = $('completedContainer');
+            
+            pendingContainer.innerHTML = "";
+            completedContainer.innerHTML = "";
+            
+            let pendingCount = 0;
+            let completedCount = 0;
+
+            const getVal = (props, name, type = 'rich_text') => {
+                const key = Object.keys(props).find(k => k.trim().toLowerCase() === name.toLowerCase());
+                if (!key) return "";
+                return props[key][type]?.map(t => t.plain_text).join("") || "";
+            };
+
+            results.forEach(page => {
+                const props = page.properties;
+                const id = page.id;
+                
+                const errorDesc = getVal(props, "Erro", "title") || "Sem descrição";
+                const imageBase64 = getVal(props, "Imagem", "rich_text");
+                const correction = getVal(props, "Correção", "rich_text");
+                const completionTime = getVal(props, "Concluído em", "rich_text");
+
+                const isCompleted = correction.trim() !== "";
+                const card = document.createElement('div');
+                card.id = `card-${id}`;
+                card.className = `bg-white rounded-2xl border ${isCompleted ? 'border-green-100 card-minimized' : 'border-slate-200 card-expanded'} overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col relative`;
+                
+                card.innerHTML = `
+                    <div class="p-3 border-b border-slate-100 ${isCompleted ? 'bg-green-50/50' : 'bg-slate-50/50'} flex justify-between items-center cursor-pointer" onclick="window.toggleCard('${id}')">
+                        <div class="flex items-center gap-3">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">${isCompleted ? 'CONCLUÍDO' : 'PENDENTE'}</span>
+                            <span class="text-[9px] text-slate-400">${new Date(page.created_time).toLocaleString()}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            ${isCompleted ? `
+                            <button onclick="event.stopPropagation(); window.archivePage('${id}')" class="p-1.5 text-slate-400 hover:text-red-500 transition-colors" title="Excluir">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>` : ''}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 transition-transform arrow-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="card-body flex">
+                        ${imageBase64 ? `
+                            <div class="card-thumbnail flex-shrink-0 overflow-hidden cursor-zoom-in transition-all" onclick="event.stopPropagation(); window.openModal('${imageBase64}')">
+                                <img src="${imageBase64}" class="w-full h-full object-cover transition-all hover:brightness-75" alt="Erro">
+                            </div>
+                        ` : ''}
+                        
+                        <div class="p-4 space-y-3 flex-grow min-w-0">
+                            <div class="space-y-1">
+                                <h4 class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Descrição</h4>
+                                <p class="text-slate-700 text-xs leading-relaxed ${isCompleted ? 'truncate' : ''} card-desc">${errorDesc}</p>
+                            </div>
+                            
+                            <div class="card-expandable space-y-3">
+                                <div class="space-y-2">
+                                    <h4 class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Correção</h4>
+                                    ${isCompleted ? 
+                                        `<div class="p-2 bg-green-50 rounded-lg border border-green-100 text-green-800 text-xs italic">"${correction}"</div>` :
+                                        `<textarea id="corr-${id}" class="w-full p-2 text-xs rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none resize-none" rows="3" placeholder="Digite a correção..."></textarea>`
+                                    }
+                                </div>
+                                ${isCompleted && completionTime ? `
+                                    <div class="flex items-center gap-1 text-[9px] text-slate-400">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                        Concluído em: ${completionTime}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    ${!isCompleted ? `
+                        <div class="card-expandable p-3 bg-slate-50 border-t border-slate-100">
+                            <button onclick="window.saveCorrection('${id}')" id="btn-${id}" class="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2">
+                                Salvar Correção
+                            </button>
+                        </div>
+                    ` : ''}
+                `;
+                
+                if (isCompleted) {
+                    completedContainer.appendChild(card);
+                    completedCount++;
+                } else {
+                    pendingContainer.appendChild(card);
+                    pendingCount++;
+                }
+            });
+
+            $('pendingCount').textContent = pendingCount;
+            $('completedCount').textContent = completedCount;
+
+            if (pendingCount === 0) {
+                pendingContainer.innerHTML = `<p class="text-center text-slate-400 py-10 text-sm italic">Nenhum erro pendente.</p>`;
+            }
+            if (completedCount === 0) {
+                completedContainer.innerHTML = `<p class="text-center text-slate-400 py-10 text-sm italic">Nenhuma correção concluída.</p>`;
+            }
+        }
+
+        // Fim do script
+        // Inicializar ícones Lucide
+        lucide.createIcons();
+    </script>
+</body>
+</html>
+
